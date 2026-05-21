@@ -52,7 +52,7 @@ Webhook (onReceived) → System Prompt (Set, editável UI) → Validate Input
        └─→ Build Note → Add Note [MS QYvm2okgK3bQgMbR] (nota ← 3 seções)
 ```
 
-Detalhes técnicos exatos (código JS, contrato JSON, payloads) → ver [`DESIGN.md`](./DESIGN.md) §3 (TBD na próxima sessão).
+Detalhes técnicos exatos (pipeline node a node, contrato JSON do LLM, pseudocódigo dos 3 nodes Code, payloads dos 3 MS, pendências de setup) → ver [`DESIGN.md`](./DESIGN.md) §3.
 
 ---
 
@@ -127,11 +127,14 @@ Detalhe → [`DESIGN.md`](./DESIGN.md) §4.
 
 ## Arquivos nesta pasta
 
+- `HANDOFF.md` — porta de entrada do Marcos (checklist de acessos, ordem de leitura, quando travar).
+- `README.md` — overview + onboarding pedagógico n8n/MCP/Pattern E + roteiro de implementação + glossário.
 - `CLAUDE.md` — runbook operacional (este arquivo).
 - `DESIGN.md` — decisões + design técnico detalhado (construtivo/histórico).
 - `FIELDS.md` — 5 campos lidos + payload do webhook + destinos de output.
 - `SYSTEM_PROMPT.md` — prompt versionado (**a criar**).
 - `mapeamento-objecoes-lead-urania.txt` — fonte literal das 16 objeções (vai concatenada no system prompt).
+- `_refs/` — snapshot crítico do monorepo (MS-KOMMO + briefing labs + qualificador).
 
 ---
 

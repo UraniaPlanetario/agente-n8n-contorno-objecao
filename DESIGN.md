@@ -39,41 +39,226 @@
 
 ## 3. Design técnico detalhado
 
-> **Status:** TBD — slots vazios. A preencher na próxima sessão de construção (depois que workflow for criado no n8n via MCP, ou paralelo à escrita do `SYSTEM_PROMPT.md` v0.1).
+> **Como ler:** spec arquitetural com pseudocódigo, não código pronto. Decisões e razões aqui; código JS exato vive em `.workflow-build.js` (a criar). Pra cada node Code, há **ref direta** ao equivalente no briefing labs ou qualificador em [`_refs/`](./_refs/) — abra o arquivo, leia a função correspondente, adapte conforme o **diff** descrito aqui.
 
-### 3.1. Pipeline n8n (nodes)
+### 3.1. Pipeline n8n — lista de nodes
 
-> TBD — lista exata dos ~14 nodes com nomes, tipos (`n8n-nodes-base.*`), conexões e dependências. Base: estrutura do briefing labs (`fk1ikmDHRYmIUOsD`) + ramo Save Field do qualifier (`zkwKMK2GebcivhGU`).
+14 nodes em sequência, com 1 branch (`IF Has Extras`) e 1 fork no final (saída dupla: field + nota). Em ordem:
+
+| # | Node (nome) | Tipo n8n | Responsabilidade |
+|---|---|---|---|
+| 1 | `Webhook` | `n8n-nodes-base.webhook` | Recebe POST. `responseMode: 'onReceived'`. Path `/contorno-objecao-kommo`. |
+| 2 | `System Prompt` | `n8n-nodes-base.set` | Define `systemPrompt` (string única, longo). **Editável direto na UI** sem rebuild. Fonte de verdade do prompt. |
+| 3 | `Validate Input` | `n8n-nodes-base.code` | Parseia `lead_id` de 2 formatos (direto ou Kommo nativo). Erro se inválido. |
+| 4 | `Get Lead` | `n8n-nodes-base.executeWorkflow` | Chama MS Get Entity (`pSUCb5GTYWc4B99I`). Retorna lead + `_embedded.contacts`. |
+| 5 | `IF Has Extras` | `n8n-nodes-base.if` | Branch: existem contatos/empresas pra buscar detalhe extra? |
+| 6a | `Plan Fetches` | `n8n-nodes-base.code` | (branch true) monta lista de entidades extras a buscar. |
+| 6b | `Get Each Extra` | `n8n-nodes-base.executeWorkflow` | (branch true) chama Get Entity para cada extra. |
+| 6c | `Aggregate Extras` | `n8n-nodes-base.code` | (branch true) consolida extras. |
+| 6d | `Empty Extras` | `n8n-nodes-base.set` | (branch false) array vazio. |
+| 7 | `Format Payload` | `n8n-nodes-base.code` | Lê `$('System Prompt')`, aplica whitelist de 5 campos, injeta DATA ATUAL, monta `messages` pro LLM. |
+| 8 | `OpenAI Chat` | `@n8n/n8n-nodes-langchain.openAi` | gpt-4o, temp 0.4, `response_format: { type: 'json_object' }`. Credencial `OpenAi ([N8N-Q] Agentes SDR)`. |
+| 9 | `Parse Output` | `n8n-nodes-base.code` | Parseia JSON do LLM em 3 campos. Valida shape mínimo. |
+| 10a | `Save Field` | `n8n-nodes-base.executeWorkflow` | (ramo paralelo) chama MS Salvar campos (`m5K7FZDDvVXDiywo`), field 1378355 ← `roteiro`. |
+| 10b | `Build Note` | `n8n-nodes-base.code` | (ramo paralelo) monta texto da nota com 3 headers fixos. |
+| 11 | `Add Note` | `n8n-nodes-base.executeWorkflow` | Chama MS Add note (`QYvm2okgK3bQgMbR`), nota completa anexada ao lead. |
+
+**Ref completa:** veja a estrutura literal dos nodes 1-9 e 11 no briefing labs ([`_refs/n8n-briefing-leads-kommo-labs/.workflow-build.js`](./_refs/n8n-briefing-leads-kommo-labs/.workflow-build.js)). O **node 10a `Save Field`** vem do qualificador ([`_refs/n8n-qualificador-leads-kommo/.workflow-build.js`](./_refs/n8n-qualificador-leads-kommo/.workflow-build.js), procure por `Save Qualified Field`). A novidade aqui é só o **fork** entre `Parse Output` e os 2 ramos finais — n8n suporta isso ligando 2 outputs do mesmo node.
+
+🎓 **Conceito-chave:** o ramo `IF Has Extras` (nodes 5-6d) parece complexidade extra, mas é como o briefing busca dados dos contatos vinculados ao lead. Mantém igual — você precisa do nome+cargo do `Contato principal` (whitelist FIELDS.md). Sem isso, o lead vem sem o nome do contato e o roteiro fica genérico.
+
+---
 
 ### 3.2. Contrato JSON do LLM (output)
 
-> TBD — schema exato dos 3 campos retornados (`roteiro`, `por_que_funciona`, `proximo_passo`). Tipos, tamanhos máximos esperados, exemplos de output válido e inválido. Definir se é OpenAI `response_format: json_object` ou JSON Schema mais estrito.
+LLM chamado com `response_format: { type: 'json_object' }`. Output esperado:
 
-### 3.3. Format Payload — código JS do node
+```json
+{
+  "roteiro": "1. Entendi quando você diz que ficou caro. Comparado a qual cenário?\n2. A Urânia funciona como infraestrutura educacional, não como atividade pontual...\n3. Quando diluímos por aluno (300 alunos · 12 meses Urânia Class), o investimento vira R$ 2,19/aluno/mês.\n4. Faz sentido retomarmos na quarta com 3 pontos pra direção?",
+  "por_que_funciona": "Cliente Particular ressoa com Estrutura Internacional + diluição financeira (Compromisso 3). Validação primeiro, reframe de evento → infraestrutura, ancoragem por aluno/mês, próximo passo com data.",
+  "proximo_passo": "Retomar quarta-feira (até 27/05) com material curto pra direção."
+}
+```
 
-> TBD — código completo do node `Format Payload` (Code). Leitura do `$('System Prompt').first().json.systemPrompt`, injeção de DATA ATUAL no userPrompt, whitelist dos 5 campos, montagem do array de mensagens pro `OpenAI Chat`.
+**Schema (informal):**
 
-### 3.4. Build Note — código JS do node
+| Campo | Tipo | Tamanho | Conteúdo |
+|---|---|---|---|
+| `roteiro` | string | ~50-200 palavras | 3-5 falas numeradas, texto puro. **É o que vai pro field 1378355** (sobrescreve). Quebras de linha como `\n`. |
+| `por_que_funciona` | string | ~30-80 palavras | Explica ao vendedor júnior por que essa abordagem foi escolhida (Estrutura ativada + Compromisso aplicado + tom). |
+| `proximo_passo` | string | ~10-30 palavras | Ação concreta com data sugerida (não placeholder `[dia]`). |
 
-> TBD — código completo do node `Build Note` (Code). Parsing do JSON do LLM, montagem da nota com 3 headers fixos (`ROTEIRO COPIÁVEL`, `POR QUE FUNCIONA`, `PRÓXIMO PASSO`).
+🎓 **Conceito-chave:** JSON mode garante shape do output, **não** garante conteúdo. O prompt em `SYSTEM_PROMPT.md` é quem força "100% PT-BR, sem markdown, sem placeholder, sem desconto solto, etc.". Se LLM retornar JSON válido mas com texto ruim, ajusta o **prompt**, não o schema.
 
-### 3.5. Payloads de chamada dos 3 MS-KOMMO
+**Validações em `Parse Output`** (node 9):
+- 3 campos existem? Se não → joga erro (workflow vai pro error workflow `HQGrY3cUDvQJLGMZ`).
+- Strings não vazias? Se sim → joga erro.
+- Tamanho razoável (`roteiro` < 2000 chars pra caber no field text Kommo)? Se exceder → trunca + log.
 
-> TBD — body exato do `executeWorkflow` pra cada MS:
-> - `[MS-KOMMO] Get Entity` (`pSUCb5GTYWc4B99I`)
-> - `[MS-KOMMO] Salvar campos em uma Entity` (`m5K7FZDDvVXDiywo`) — inclui mapeamento `field_id: 1378355`
-> - `[MS-KOMMO] Add note` (`QYvm2okgK3bQgMbR`)
+---
 
-### 3.6. Validate Input — código JS
+### 3.3. Format Payload (Code) — pseudocódigo
 
-> TBD — código exato do node `Validate Input`. Aceita `{lead_id}` direto OU payload nativo Kommo `leads[add|update|status][0][id]` (form-urlencoded — compatibilidade salesbot).
+**Responsabilidade:** transformar o lead que veio do Kommo em payload pronto pro LLM. Whitelist de 5 campos + injeta DATA ATUAL + concatena o `mapeamento-objecoes-lead-urania.txt` no system prompt.
 
-### 3.7. Pendências de setup
+**Pseudocódigo:**
 
-> TBD — confirmar antes de criar workflow:
-> - `field_id` exato de `Nº de alunos` (não está catalogado em [`_refs/n8n-ms-kommo/kommo-fields.md`](./_refs/n8n-ms-kommo/kommo-fields.md) · monorepo: `../n8n-ms-kommo/kommo-fields.md` — buscar via API)
-> - Custom field `Cargo` em contacts (`904188`) — confirmar nome de campo retornado em `_embedded.contacts[0].custom_fields_values`
-> - Custom field 1378355 — confirmar limite de chars e suporte a quebras de linha (`\n`)
+```
+systemPrompt  ← $('System Prompt').first().json.systemPrompt
+mapeamento    ← conteúdo de mapeamento-objecoes-lead-urania.txt (lido como string)
+dataAtual     ← data hoje em formato BRT (DD/MM/YYYY)
+
+lead          ← $('Get Lead').first().json
+extras        ← $('Aggregate Extras' ou 'Empty Extras').first().json
+contato       ← extras.contacts[0]  // contato principal
+
+leadFiltrado  ← {
+  objecoes:        getCustomField(lead, 'Objeções'),         // multiselect
+  objecoes_livre:  getCustomField(lead, 'Objeções (livre)'), // text
+  tipo_cliente:    getCustomField(lead, 'Tipo de cliente'),  // enum
+  num_alunos:      getCustomField(lead, 'Nº de alunos'),     // number
+  contato_cargo:   getCustomField(contato, 'Cargo')          // string
+}
+
+userPrompt    ← "DATA ATUAL: " + dataAtual + "\n\n"
+              + "LEAD:\n" + JSON.stringify(leadFiltrado, null, 2)
+
+return {
+  systemPrompt:  systemPrompt + "\n\n---\n\nMAPEAMENTO DE OBJEÇÕES:\n\n" + mapeamento,
+  userPrompt:    userPrompt
+}
+```
+
+**Ref:** veja `Format Payload` do briefing labs (`_refs/n8n-briefing-leads-kommo-labs/.workflow-build.js`, procure por `const PAYLOAD_CODE` ou similar). Estrutura idêntica, só muda:
+1. **Whitelist** — briefing tem 16 Tier S + 6 Tier A. Aqui é só 5.
+2. **Concatenação do `mapeamento-objecoes-lead-urania.txt`** — briefing não faz isso. Aqui é essencial.
+
+🎓 **Conceito-chave:** o filtro de campos usa `field.field_name` (string legível) em vez de `field_id`. Mais robusto a renomeações? Não — é o contrário: se renomearem o campo no Kommo, **quebra**. Mas é o padrão da casa porque `field_name` é legível no código (e renomeações são raras). Decisão de design herdada.
+
+---
+
+### 3.4. Build Note (Code) — pseudocódigo
+
+**Responsabilidade:** montar o texto da nota com 3 headers fixos a partir do JSON parseado.
+
+**Pseudocódigo:**
+
+```
+parsed ← $('Parse Output').first().json  // { roteiro, por_que_funciona, proximo_passo }
+
+texto ← "ROTEIRO COPIÁVEL\n"
+      + parsed.roteiro + "\n\n"
+      + "POR QUE FUNCIONA\n"
+      + parsed.por_que_funciona + "\n\n"
+      + "PRÓXIMO PASSO\n"
+      + parsed.proximo_passo
+
+return { note_text: texto }
+```
+
+🎓 **Conceito-chave:** headers em **string fixa** no JS (não no LLM). Se um dia quiser mudar `ROTEIRO COPIÁVEL` pra `ROTEIRO`, edita aqui — sem re-calibrar o prompt. **Separação de responsabilidades:** LLM gera conteúdo, código gera estrutura.
+
+**Ref:** o briefing labs **não tem `Build Note`** — ele monta a nota toda no LLM. Aqui mudamos porque a saída dupla (field + nota) exige que `roteiro` venha separado, então a nota precisa ser montada por código depois.
+
+---
+
+### 3.5. Payloads dos 3 MS-KOMMO
+
+São contratos **rígidos** — os MS esperam shapes específicos. Veja `_refs/n8n-ms-kommo/ms/*.md` pra spec detalhada de cada. Resumo:
+
+**Node 4 `Get Lead` → MS `pSUCb5GTYWc4B99I`** ([`get-entity.md`](./_refs/n8n-ms-kommo/ms/get-entity.md))
+
+```json
+{
+  "workflowId": "pSUCb5GTYWc4B99I",
+  "mode": "each",
+  "options": { "waitForSubWorkflow": true },
+  "body": {
+    "entity_type": "leads",
+    "entity_id": "{{ $('Validate Input').first().json.lead_id }}",
+    "with": "contacts,catalog_elements"
+  }
+}
+```
+
+**Node 10a `Save Field` → MS `m5K7FZDDvVXDiywo`** ([`salvar-campos.md`](./_refs/n8n-ms-kommo/ms/salvar-campos.md))
+
+```json
+{
+  "workflowId": "m5K7FZDDvVXDiywo",
+  "mode": "each",
+  "options": { "waitForSubWorkflow": true },
+  "body": {
+    "entity_type": "leads",
+    "entity_id": "{{ $('Validate Input').first().json.lead_id }}",
+    "fields": [
+      { "field_id": 1378355, "value": "{{ $('Parse Output').first().json.roteiro }}" }
+    ]
+  }
+}
+```
+
+**Node 11 `Add Note` → MS `QYvm2okgK3bQgMbR`** ([`add-note.md`](./_refs/n8n-ms-kommo/ms/add-note.md))
+
+```json
+{
+  "workflowId": "QYvm2okgK3bQgMbR",
+  "mode": "each",
+  "options": { "waitForSubWorkflow": true },
+  "body": {
+    "entity_type": "leads",
+    "entity_id": "{{ $('Validate Input').first().json.lead_id }}",
+    "note_type": "service_message",
+    "service": "Agente Contorno Objeção",
+    "text": "{{ $('Build Note').first().json.note_text }}"
+  }
+}
+```
+
+🎓 **Conceito-chave:** o shape exato do `body` (nomes de campos, tipos) está em cada `ms/*.md`. **Sempre** abra esses MDs antes de chamar um MS pela primeira vez — adivinhar shape gera erro silencioso (MS retorna 200, mas Kommo não atualiza).
+
+---
+
+### 3.6. Validate Input (Code) — pseudocódigo
+
+**Responsabilidade:** aceitar 2 formatos de body diferentes (compatibilidade salesbot Kommo nativo) e devolver `lead_id` normalizado.
+
+```
+body ← $input.first().json
+queryParams ← $input.first().query (se houver — form-urlencoded vai aqui)
+
+// formato 1: { "lead_id": 28416666 }
+if (body.lead_id) return { lead_id: Number(body.lead_id) }
+
+// formato 2 (Kommo nativo, form-urlencoded):
+//   leads[add][0][id]=28416666
+//   leads[update][0][id]=28416666
+//   leads[status][0][id]=28416666
+for ação em ['add', 'update', 'status']:
+  if (body?.leads?.[ação]?.[0]?.id):
+    return { lead_id: Number(body.leads[ação][0].id) }
+
+// nada bateu → erro
+throw new Error('lead_id ausente — body recebido: ' + JSON.stringify(body))
+```
+
+**Ref:** o briefing labs e o qualificador **ambos** têm `Validate Input` idêntico — copia literal do briefing (`_refs/n8n-briefing-leads-kommo-labs/.workflow-build.js`, função `VALIDATE_CODE` ou similar).
+
+🎓 **Conceito-chave:** o erro é **interno** (lança exceção que vai pro error workflow). Não responde HTTP 400 — o `responseMode: 'onReceived'` já respondeu 200 quando o webhook entrou. Quem chamou (Kommo) não saberia interpretar 400 mesmo.
+
+---
+
+### 3.7. Pendências de setup (antes de criar o workflow)
+
+Resolva antes ou logo no início da implementação. Não bloqueia escrever o `SYSTEM_PROMPT.md`, mas bloqueia subir o workflow.
+
+- [ ] **`field_id` exato de `Nº de alunos`** — não está catalogado em [`_refs/n8n-ms-kommo/kommo-fields.md`](./_refs/n8n-ms-kommo/kommo-fields.md) · monorepo: `../n8n-ms-kommo/kommo-fields.md`. **Como resolver:** chama Kommo API `GET /api/v4/leads/custom_fields` (autenticado com Bearer `skV2BHNge0lsu6UO`) e procura o campo. Atualiza `FIELDS.md` quando achar.
+- [ ] **Custom field `Cargo` em contacts** — `field_id: 904188` já está catalogado. **Confirmar:** como ele aparece no payload `_embedded.contacts[0].custom_fields_values`? Pega 1 lead com contato cadastrado e inspeciona via `Get Lead` direto (executeWorkflow do MS isolado). Documenta o path exato pra usar no `Format Payload`.
+- [ ] **Custom field 1378355 — suporte a quebras de linha (`\n`)** — Kommo field text aceita multilinha em **alguns** lugares e single-line em outros. **Como testar:** chama MS Salvar campos com texto contendo `\n`. Confere no card Kommo se renderiza com quebra de linha ou se vira espaço. Se virar espaço → adapta `roteiro` pra usar separadores tipo ` · ` em vez de `\n`.
+- [ ] **Credencial OpenAI no node `OpenAI Chat`** — não vem auto-atribuída quando você cria workflow via MCP. Após criar, vai na UI do n8n no node, seleciona `OpenAi ([N8N-Q] Agentes SDR)`.
+- [ ] **Error workflow `HQGrY3cUDvQJLGMZ`** — setar em `settings.errorWorkflow` ao criar o workflow.
+- [ ] **Salesbot no Kommo** — não é setup do workflow, mas é o trigger. Após o workflow estar ativo, criar salesbot manual no Kommo que dispara webhook `POST /webhook/contorno-objecao-kommo` com `lead_id`. Configuração na UI do Kommo, não no n8n.
 
 ---
 
@@ -91,4 +276,4 @@ Os 3 itens abaixo são pós-ativação. Disparar quando agente estiver calibrado
 
 | Data | Evento |
 |---|---|
-| 2026-05-21 | Brainstorm fechado; 12 decisões logadas; CLAUDE.md/DESIGN.md/FIELDS.md criados; design técnico detalhado e `SYSTEM_PROMPT.md` v0.1 pendentes |
+| 2026-05-21 | Brainstorm fechado (12 decisões logadas + Understanding Lock); CLAUDE.md/DESIGN.md/FIELDS.md/README.md criados; snapshot crítico em `_refs/`; primeiro push pro GitHub `UraniaPlanetario/agente-n8n-contorno-objecao` (commit `507cd78`); design técnico detalhado §3 preenchido (pipeline, contrato JSON, pseudocódigo dos 3 nodes Code, payloads MS, pendências de setup); README ampliado com seção "Onboarding Marcos" pedagógica. Pendente: `SYSTEM_PROMPT.md` v0.1 + criação do workflow no n8n (handoff Marcos). |
