@@ -1,11 +1,14 @@
 # RESTORE POINT — Histórico
 
-## ✅ v0.15 (ATIVA — 2026-05-26)
+## ✅ v0.17 (ATIVA — 2026-05-26)
 
-3 patches após round test sistemático (54 disparos · 3 perfis × 18 combinações). Bugs catalogados em `ROUND_TEST_RESULTS.md`:
-- **Patch 1:** força diluição R$ no roteiro quando #1/#2/#3/#10/#12 marcada em combinação com institucional (6 falhas em 12 pares observadas).
-- **Patch 2:** força 3 perguntas em fala dedicada quando #14 marcada em qualquer combinação (2 falhas em 3 pares observadas).
-- **Patch 3:** tabela PRÓXIMAS DATAS-ÂNCORA TRIMESTRAIS no Format Payload + referência no prompt — resolve "ano que vem" virando mês solto (3 reincidências observadas).
+Uso ativo do campo `Objeções (livre)` como contexto prioritário do roteiro. Patch acolhe elementos específicos da citação literal do cliente em todas as falas relevantes (validar, investigar, ancorar). Validado em lead 28231916 (SME) com não-regressão confirmada em 4 leads com #6 isolado.
+
+### Histórico v0.15 → v0.16 → v0.17
+
+- **v0.15** — 3 patches pós-round test (diluição forçada #1+combo, 3 perguntas forçadas #14+combo, datas-âncora trimestrais #9).
+- **v0.16** — anti-cópia reforçada para #6 (frases queimadas + variantes). Cópia deslocada, não eliminada — aceita como cosmética.
+- **v0.17** — uso ativo de `Objeções (livre)`. Resolve caso SME (lead 28231916).
 
 Detalhes da versão e validação: ver `SYSTEM_PROMPT.md` (histórico de iterações).
 
@@ -17,6 +20,8 @@ Detalhes da versão e validação: ver `SYSTEM_PROMPT.md` (histórico de iteraç
 - **2026-05-26** — v0.12 → v0.13 → v0.13.1 (cabeçalho clean "Contorno: <label literal>" — sem disclaimer, label Kommo preservado). ✅ Concluída.
 - **2026-05-26** — v0.13.1 → v0.14 (regra de multi-objeção: roteiro cobre todas as objeções marcadas). ✅ Concluída.
 - **2026-05-26** — v0.14 → v0.15 (round test 54 disparos · 3 patches: diluição forçada #1+combo, 3 perguntas forçadas #14+combo, datas-âncora trimestrais #9). ✅ Concluída.
+- **2026-05-26** — v0.15 → v0.16 (anti-cópia reforçada #6, validação em 4 leads reais com cópia 100% — fala 3 melhorou parcial, fala 2 cópia deslocada). ✅ Concluída.
+- **2026-05-26** — v0.16 → v0.17 (uso ativo de `Objeções (livre)` — bug descoberto em lead 28231916 SME, validado no mesmo lead pós-patch). ✅ Concluída.
 
 ## Como reverter qualquer versão via Git
 

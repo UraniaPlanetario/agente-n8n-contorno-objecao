@@ -847,3 +847,60 @@ POR QUE FUNCIONA: Estruturas Científica + Pedagógica + Digital. BNCC + curador
 4. Inconsistência #10+Tipo-mismatch — improvável em produção real, deixar.
 5. Bug R$9.000 inventado — observar reincidência antes de fix.
 
+---
+
+## Disparos reais pós-v0.15 (validação em produção)
+
+### 7 disparos reais (2026-05-26 ~13:30 UTC)
+
+| Lead | Tipo | Objeções | Avaliação |
+|---|---|---|---|
+| 29404611 | Pública | #6 | ✅ funcional · 🟡 cópia literal Exemplo 1 |
+| 29373445 | Pública | **#2+#10** | ✅ patch v0.15 #1 validado — diluição R$1,27-1,50 presente |
+| 29359951 | Pública | #6 | ✅ · 🟡 cópia |
+| 19261679 | Secretaria 3000 | N/A → #2 | ✅ branch defensivo + roteiro escalou pra 3000 alunos (R$0,72/aluno) |
+| 25502725 | Particular | #6 | ✅ · 🟡 cópia |
+| 23501144 | Pública | #6 | ✅ · 🟡 cópia |
+| 29360907 | Pública | #2 | ✅ Diluição correta |
+
+**Achados:**
+- Patch v0.15 #1 (diluição multi-objeção financeira) **validado** em 29373445.
+- Bug crítico descoberto: **cópia 100% literal das falas 2-3 do Exemplo 1** em 4 disparos consecutivos com #6 isolada (29404611, 29359951, 25502725, 23501144).
+- Patches v0.15 #2 (#14) e #3 (#9) sem dados — esperar próximos disparos.
+
+### v0.16 — anti-cópia #6 (5 disparos)
+
+Aplicado patch marcando frases queimadas + 4 variantes alternativas para fala 2 e fala 3 do tratamento de #6.
+
+| Lead | Fala 2 (nova) | Fala 3 (nova) |
+|---|---|---|
+| 29404611 | "...passa pela coordenação ou direto pela direção?" | "2 caminhos de apoio: material objetivo... OU call rápida..." |
+| 29359951 | (idêntica) | (idêntica) |
+| 25502725 | (idêntica) | "Posso te enviar um briefing curto..." |
+| 23501144 | (idêntica) | (idêntica) |
+
+**Resultado parcial:**
+- Fala 2: cópia DESLOCADA — LLM trocou a queimada por outra fixa (1ª variante da lista). 4/4 idênticas entre si.
+- Fala 3: cópia REDUZIDA — alternou entre 2 variantes.
+- Lição: dar lista de alternativas literais não resolve, só desloca. Solução real seria remover texto literal (risco de regressão de tom).
+
+**Decisão:** aceitar v0.16 como está. Cópia em #6 isolada é cosmética (vendedor adapta ao falar). Reabrir se aparecer em outros tipos de objeção.
+
+### v0.17 — uso ativo de `Objeções (livre)` (5 disparos)
+
+**Bug descoberto** no lead 28231916 (Tatiana, Pública): campo `Objeções (livre)` = `"apoio da SME, porém informou que não tem verba nesse valor"` foi IGNORADO pelo LLM — tratou como #2 SEM VERBA genérico. Causa: prompt não instruía uso ativo do campo.
+
+Patch adicionou seção dedicada instruindo o roteiro a refletir a citação literal: fala 1 acolhe elementos específicos, fala 2 investiga a pista revelada (aliança institucional, tentativa anterior, gap parcial), fala 4 adapta ao gap (ex.: modalidade alternativa).
+
+**Validação no mesmo lead (exec 260375):**
+
+| Fala | v0.16 (antes) | v0.17 (depois) |
+|---|---|---|
+| 1 | "faz total sentido a preocupação com verba" (genérico) | "vocês têm apoio da SME, mas o valor da proposta não encaixou na modalidade" ✅ |
+| 2 | "Hoje vocês já possuem alguma verba..." (genérico) | "A SME costuma aportar uma parte do valor ou exige uma modalidade específica?" ✅ |
+| 4 | "Diluindo... R$2-2,50/aluno/mês" (genérico) | "Diluindo pela modalidade menor... pode encaixar com o aporte da SME" ✅ |
+
+**Não-regressão validada nos 4 leads com #6** (29404611, 29359951, 25502725, 23501144): tom humano, Estruturas, Compromissos todos preservados. Cópia da fala 2 persistente (comportamento v0.16 idêntico).
+
+**Status v0.17:** deployada e validada. Patch resolve dramaticamente o caso de uso de citação livre sem regredir os demais casos.
+
