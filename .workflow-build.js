@@ -316,8 +316,24 @@ for (let i = 0; i < cfv.length; i++) {
 const objecoesLead = (present['Objeções'] || '').split(', ').map(function(s){return s.trim();});
 const ehFinanceira = objecoesLead.some(function(o){return OBJECOES_FINANCEIRAS.has(o);});
 
-const today = new Date().toISOString().slice(0,10);
-const lines = ['DATA ATUAL: ' + today, '', 'LEAD'];
+// v0.12 (2026-05-26): tabela de dias úteis pré-calculada pro LLM não errar dia-da-semana vs data.
+const diasSemana = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const todayObj = new Date();
+const today = todayObj.toISOString().slice(0,10);
+const todayDow = diasSemana[todayObj.getDay()];
+const proximosDias = [];
+let dRef = new Date(todayObj);
+while (proximosDias.length < 5) {
+  dRef.setDate(dRef.getDate() + 1);
+  if (dRef.getDay() === 0 || dRef.getDay() === 6) continue;
+  const isoDate = dRef.toISOString().slice(0,10);
+  const ddmm = isoDate.split('-').slice(1).reverse().join('/');
+  proximosDias.push('- ' + diasSemana[dRef.getDay()] + ': ' + isoDate + ' (' + ddmm + ')');
+}
+
+const lines = ['DATA ATUAL: ' + today + ' (' + todayDow + ')', '', 'PRÓXIMOS DIAS ÚTEIS:'];
+proximosDias.forEach(function(d){ lines.push(d); });
+lines.push('', 'LEAD');
 
 // Preço SÓ aparece se objeção for financeira (#1, #2, #3, #10, #12).
 // Resolve bug v0.3/v0.4: LLM via o preço e aplicava diluição indevida em objeções não-financeiras.
