@@ -418,8 +418,8 @@ return [{ json: {
   leadId: leadId
 } }];`;
 
-const BUILD_NOTE_CODE = `// v0.8 (2026-05-25): adiciona cabeçalho com "OBJEÇÕES SETADAS NO DISPARO" pra auditoria.
-//   Snapshot vem do Format Payload (incluindo N/A se marcado — opção A).
+const BUILD_NOTE_CODE = `// v0.13.1 (2026-05-26): cabeçalho clean "Contorno: <label literal Kommo>" (sem disclaimer "snapshot").
+// v0.8: cabeçalho com objeções setadas no disparo pra auditoria.
 // v0.6.2: cria 2 registros no Kommo — Nota (common) + Msg interna (service_message).
 //   Marcos quer ambos: Nota pro histórico + msg interna pro fluxo de conversa.
 //   Add Note (executeWorkflow mode each) itera os 2 items e cria 2 chamadas ao MS.
