@@ -904,3 +904,41 @@ Patch adicionou seção dedicada instruindo o roteiro a refletir a citação lit
 
 **Status v0.17:** deployada e validada. Patch resolve dramaticamente o caso de uso de citação livre sem regredir os demais casos.
 
+### Validação adicional pós-v0.17 — lead 29483911 (tripla objeção)
+
+Disparo real validou patches v0.15 #1 e #2 juntos:
+
+- Lead 29483911 (Renata, Pública, 300 alunos, R$5.200)
+- Objeções enum: **#1 CARO + #2 SEM VERBA + #14 Só preço rápido**
+- Output cobriu: fala 2 investiga #1, fala 3 traz 3 perguntas Compromisso 1 (#14), fala 4 dilui R$1,45-1,80/aluno
+- Compromisso 1 + Compromisso 3 convivendo corretamente em multi-objeção
+- 🟡 #2 SEM VERBA ficou implícita na diluição (sem fala dedicada de janela orçamentária) — observação menor, não impacta função
+
+Patches v0.15 #1 e #2 oficialmente validados em produção real.
+
+### v0.18 — inferência enum-vazio + livre-preenchido
+
+**Bug descoberto** em lead 29479931 (Nelson, Pública, 400 alunos):
+- Campo `Objeções` (enum): **vazio**
+- Campo `Objeções (livre)`: `"são 350 alunos, mesmo sendo um valor baixo, 80% ou dos estudantes não conseguem pagar este valor."`
+
+Agente caía em branch defensivo (orientation note) — `Format Payload` checava só o enum pra `ehObjecaoValida`. Citação rica ignorada completamente.
+
+**Patch dual:**
+1. **Format Payload** — `ehObjecaoValida = objecoesReais.length > 0 || livrePreenchido` (livre preenchido também conta).
+2. **System Prompt** — nova seção "REGRA DE INFERÊNCIA quando enum vazio + livre preenchido" instruindo LLM a inferir 1-3 objeções canônicas, aplicar Estratégia/Estruturas/Compromissos, e alertar vendedor no `por_que_funciona`.
+
+**Validação no mesmo lead (exec 260486):**
+
+| Critério | Resultado |
+|---|---|
+| Inferência da citação | ✅ #10 Escola Pública + #2 SEM VERBA |
+| Fala 1 acolhe citação literal | ✅ "350 alunos e a questão do valor ainda é um ponto" |
+| Fala 2 investiga apoio institucional | ✅ "secretaria ou outra fonte de verba" |
+| Estruturas Pública | ✅ Científica + Pedagógica + Digital + BNCC |
+| Diluição R$ | ✅ R$1-1,50/aluno (faixa qualitativa, sem preço cadastrado) |
+| Cabeçalho preservado | ✅ "Contorno: (nenhuma)" — sinaliza enum vazio |
+| Alerta no `por_que_funciona` | ✅ "Objeção inferida da citação livre: #10 + #2. Vendedor não marcou o enum — marcar próximo disparo." |
+
+**Status v0.18:** deployada e validada. Resgata leads onde vendedor pula a classificação mas registra a citação.
+

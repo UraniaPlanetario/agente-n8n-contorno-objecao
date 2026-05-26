@@ -1,14 +1,15 @@
 # RESTORE POINT — Histórico
 
-## ✅ v0.17 (ATIVA — 2026-05-26)
+## ✅ v0.18 (ATIVA — 2026-05-26)
 
-Uso ativo do campo `Objeções (livre)` como contexto prioritário do roteiro. Patch acolhe elementos específicos da citação literal do cliente em todas as falas relevantes (validar, investigar, ancorar). Validado em lead 28231916 (SME) com não-regressão confirmada em 4 leads com #6 isolado.
+Inferência de objeção a partir do campo `Objeções (livre)` quando o enum está vazio. Bug descoberto em lead 29479931 (Nelson, Pública): vendedor preencheu só o campo livre → agente caía em branch defensivo ignorando citação rica. Patch faz Format Payload aceitar `livrePreenchido` como sinal válido + prompt instrui LLM a inferir 1-3 objeções canônicas + alertar vendedor no `por_que_funciona`. Validado no mesmo lead: inferiu #10 + #2 corretamente, gerou roteiro completo, manteve rastreabilidade ("Contorno: (nenhuma)").
 
-### Histórico v0.15 → v0.16 → v0.17
+### Histórico v0.15 → v0.18
 
-- **v0.15** — 3 patches pós-round test (diluição forçada #1+combo, 3 perguntas forçadas #14+combo, datas-âncora trimestrais #9).
+- **v0.15** — 3 patches pós-round test (diluição forçada #1+combo, 3 perguntas forçadas #14+combo, datas-âncora trimestrais #9). Validado em produção (lead 29373445 com #2+#10 e lead 29483911 com #1+#2+#14).
 - **v0.16** — anti-cópia reforçada para #6 (frases queimadas + variantes). Cópia deslocada, não eliminada — aceita como cosmética.
 - **v0.17** — uso ativo de `Objeções (livre)`. Resolve caso SME (lead 28231916).
+- **v0.18** — inferência enum-vazio + livre-preenchido. Resolve caso Nelson (lead 29479931).
 
 Detalhes da versão e validação: ver `SYSTEM_PROMPT.md` (histórico de iterações).
 
@@ -22,6 +23,7 @@ Detalhes da versão e validação: ver `SYSTEM_PROMPT.md` (histórico de iteraç
 - **2026-05-26** — v0.14 → v0.15 (round test 54 disparos · 3 patches: diluição forçada #1+combo, 3 perguntas forçadas #14+combo, datas-âncora trimestrais #9). ✅ Concluída.
 - **2026-05-26** — v0.15 → v0.16 (anti-cópia reforçada #6, validação em 4 leads reais com cópia 100% — fala 3 melhorou parcial, fala 2 cópia deslocada). ✅ Concluída.
 - **2026-05-26** — v0.16 → v0.17 (uso ativo de `Objeções (livre)` — bug descoberto em lead 28231916 SME, validado no mesmo lead pós-patch). ✅ Concluída.
+- **2026-05-26** — v0.17 → v0.18 (inferência enum-vazio + livre-preenchido — bug descoberto em lead 29479931 Nelson, Format Payload + Prompt patcheados, validado no mesmo lead pós-patch). ✅ Concluída.
 
 ## Como reverter qualquer versão via Git
 
